@@ -154,12 +154,60 @@ function analyzeGitDiff(diffOutput, filePath) {
     const configMatches = diffOutput.match(configPattern);
     if (configMatches) {
       const configs = configMatches.map(match => {
-        const configName = match.match(/"([^"]+)"/);
+        const configName = match.match(/"([^"]+)"/); 
         return configName ? configName[1] : 'config';
       }).filter((name, index, arr) => arr.indexOf(name) === index);
       
       if (configs.length > 0) {
         changes.push(`Updated ${configs.slice(0, 2).join(', ')} ${configs.length > 2 ? `and ${configs.length - 2} more configurations` : 'configuration' + (configs.length > 1 ? 's' : '')}`);
+      }
+    }
+  }
+  
+  // Check for JavaScript/Node.js specific changes
+  if (fileExt === '.js' || fileExt === '.mjs' || fileExt === '.ts') {
+    const jsPatterns = {
+      regex: /[+-].*(?:new RegExp|\/.+\/[gimuy]*)/g,
+      errorHandling: /[+-].*(?:try|catch|throw|Error|finally)/g,
+      async: /[+-].*(?:async|await|Promise|then|catch)/g,
+      logging: /[+-].*(?:console\.|log|debug|warn|error)/g,
+      patterns: /[+-].*(?:Pattern|pattern|match|test|exec)/g,
+      algorithms: /[+-].*(?:sort|filter|map|reduce|forEach|find)/g,
+      validation: /[+-].*(?:validate|check|verify|test)/g,
+      utilities: /[+-].*(?:util|helper|tool|format|parse)/g
+    };
+    
+    const jsChanges = [];
+    Object.entries(jsPatterns).forEach(([type, pattern]) => {
+      const matches = diffOutput.match(pattern);
+      if (matches && matches.length > 0) {
+        jsChanges.push(`${type} (${matches.length})`);
+      }
+    });
+    
+    if (jsChanges.length > 0) {
+      changes.push(`Code enhancements: ${jsChanges.slice(0, 3).join(', ')}`);
+    }
+    
+    // Special handling for auto-commit.js or similar script files
+    if (fileName.includes('commit') || fileName.includes('script')) {
+      const scriptPatterns = {
+        analysis: /[+-].*(?:analyze|Analysis|pattern|Pattern|detect)/g,
+        gitOperations: /[+-].*(?:git|Git|commit|Commit|diff|Diff)/g,
+        messageGeneration: /[+-].*(?:message|Message|generate|Generate)/g,
+        fileProcessing: /[+-].*(?:file|File|process|Process|read|Read)/g
+      };
+      
+      const scriptChanges = [];
+      Object.entries(scriptPatterns).forEach(([type, pattern]) => {
+        const matches = diffOutput.match(pattern);
+        if (matches && matches.length > 0) {
+          scriptChanges.push(`${type} logic`);
+        }
+      });
+      
+      if (scriptChanges.length > 0) {
+        changes.push(`Script improvements: ${scriptChanges.slice(0, 3).join(', ')}`);
       }
     }
   }
@@ -182,12 +230,63 @@ function analyzeGitDiff(diffOutput, filePath) {
       }
     }
     
+    // Check for business logic methods
+    const businessLogicPatterns = {
+      sorting: /(?:sort|Sort|ORDER|order)(?:By|Data|Items|List)?\s*[=:]?\s*(?:\(|=>|\{)/g,
+      filtering: /(?:filter|Filter|where|Where)(?:By|Data|Items|List)?\s*[=:]?\s*(?:\(|=>|\{)/g,
+      searching: /(?:search|Search|find|Find)(?:By|Data|Items|List)?\s*[=:]?\s*(?:\(|=>|\{)/g,
+      pagination: /(?:page|Page|paginate|Paginate)(?:Data|Items|List)?\s*[=:]?\s*(?:\(|=>|\{)/g,
+      validation: /(?:validate|Validate|check|Check)(?:Form|Data|Input)?\s*[=:]?\s*(?:\(|=>|\{)/g,
+      dataProcessing: /(?:process|Process|transform|Transform|map|Map)(?:Data|Items|List)?\s*[=:]?\s*(?:\(|=>|\{)/g,
+      eventHandling: /(?:handle|Handle|on[A-Z])\w*\s*[=:]?\s*(?:\(|=>|\{)/g,
+      apiCalls: /(?:fetch|get|post|put|delete|api|Api)\w*\s*[=:]?\s*(?:\(|=>|\{)/g
+    };
+    
+    const businessLogicChanges = [];
+    Object.entries(businessLogicPatterns).forEach(([type, pattern]) => {
+      const matches = diffOutput.match(pattern);
+      if (matches) {
+        const uniqueMatches = [...new Set(matches)];
+        if (uniqueMatches.length > 0) {
+          const methodNames = uniqueMatches.map(match => {
+            const methodName = match.match(/([a-zA-Z_$][a-zA-Z0-9_$]*)/)?.[1];
+            return methodName || type;
+          }).slice(0, 2);
+          businessLogicChanges.push(`${type}: ${methodNames.join(', ')}`);
+        }
+      }
+    });
+    
+    if (businessLogicChanges.length > 0) {
+      changes.push(`Business logic: ${businessLogicChanges.join(', ')}`);
+    }
+    
     // Check for hooks usage
     const hooksPattern = /use[A-Z][a-zA-Z0-9]*/g;
     const hooksMatches = diffOutput.match(hooksPattern);
     if (hooksMatches) {
       const hooks = [...new Set(hooksMatches)].slice(0, 3);
       changes.push(`Uses React hooks: ${hooks.join(', ')}`);
+    }
+    
+    // Check for state management patterns
+    const statePatterns = {
+      useState: /useState\s*\(/g,
+      useReducer: /useReducer\s*\(/g,
+      useContext: /useContext\s*\(/g,
+      redux: /(?:useSelector|useDispatch|connect)\s*\(/g
+    };
+    
+    const stateChanges = [];
+    Object.entries(statePatterns).forEach(([type, pattern]) => {
+      const matches = diffOutput.match(pattern);
+      if (matches) {
+        stateChanges.push(`${type} (${matches.length})`);
+      }
+    });
+    
+    if (stateChanges.length > 0) {
+      changes.push(`State management: ${stateChanges.join(', ')}`);
     }
   }
   
