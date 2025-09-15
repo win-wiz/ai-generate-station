@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Enhanced auto-commit script with intelligent code analysis
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
