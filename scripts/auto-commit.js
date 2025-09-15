@@ -80,13 +80,23 @@ function getGitStatus() {
  */
 function analyzeFileChanges(filePath) {
   try {
-    const diffOutput = executeCommand(`git diff HEAD -- "${filePath}"`, true);
+    // First try to get staged changes (most relevant during commit process)
+    let diffOutput = executeCommand(`git diff --cached -- "${filePath}"`, true);
+    
+    // If no staged changes, try working directory changes
     if (!diffOutput) {
-      // Try staged changes
-      const stagedDiff = executeCommand(`git diff --cached -- "${filePath}"`, true);
-      if (!stagedDiff) return 'Minor updates';
-      return analyzeGitDiff(stagedDiff, filePath);
+      diffOutput = executeCommand(`git diff HEAD -- "${filePath}"`, true);
     }
+    
+    // If still no diff, try comparing with previous commit
+    if (!diffOutput) {
+      diffOutput = executeCommand(`git diff HEAD~1 -- "${filePath}"`, true);
+    }
+    
+    if (!diffOutput) {
+      return 'Minor updates';
+    }
+    
     return analyzeGitDiff(diffOutput, filePath);
   } catch (error) {
     return 'Content modifications';
