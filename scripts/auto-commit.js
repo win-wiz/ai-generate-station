@@ -80,22 +80,28 @@ function getGitStatus() {
  */
 function analyzeFileChanges(filePath) {
   try {
-    // First try to get staged changes (most relevant during commit process)
-    let diffOutput = executeCommand(`git diff --cached -- "${filePath}"`, true);
+    // First try working directory changes (before staging)
+    let diffOutput = executeCommand(`git diff HEAD -- "${filePath}"`, true);
     
-    // If no staged changes, try working directory changes
+    // If no working directory changes, try staged changes
     if (!diffOutput) {
-      diffOutput = executeCommand(`git diff HEAD -- "${filePath}"`, true);
+      diffOutput = executeCommand(`git diff --cached -- "${filePath}"`, true);
     }
     
-    // If still no diff, try comparing with previous commit
-    if (!diffOutput) {
-      diffOutput = executeCommand(`git diff HEAD~1 -- "${filePath}"`, true);
-    }
-    
-    if (!diffOutput) {
-      return 'Minor updates';
-    }
+    // If still no diff, the file might be new/untracked
+     if (!diffOutput) {
+        // For new files, try to analyze the content
+        try {
+          const fs = require('fs');
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+          if (fileContent) {
+            return analyzeGitDiff(`+${fileContent}`, filePath);
+          }
+        } catch (e) {
+          // File might not exist or be readable
+        }
+        return 'Minor updates';
+      }
     
     return analyzeGitDiff(diffOutput, filePath);
   } catch (error) {
@@ -308,14 +314,14 @@ function autoCommit() {
   console.log('📊 Analyzing changes...');
   const changes = getGitStatus();
   
-  // Add all changes to staging area
-  console.log('📝 Adding files to staging area...');
-  executeCommand('git add .');
-  
-  // Generate commit message
+  // Generate commit message BEFORE adding to staging area
   console.log('💬 Generating commit message...');
   const commitMessage = generateCommitMessage(changes);
   console.log(`Commit message: ${commitMessage}`);
+  
+  // Add all changes to staging area
+  console.log('📝 Adding files to staging area...');
+  executeCommand('git add .');
   
   // Commit changes
   console.log('💾 Committing changes...');
