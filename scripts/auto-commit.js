@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
-// import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 
 /**
@@ -89,16 +89,18 @@ function analyzeFileChanges(filePath) {
     }
     
     // If still no diff, the file might be new/untracked
-     if (!diffOutput) {
+      if (!diffOutput) {
         // For new files, try to analyze the content
         try {
-          const fs = require('fs');
           const fileContent = fs.readFileSync(filePath, 'utf8');
           if (fileContent) {
-            return analyzeGitDiff(`+${fileContent}`, filePath);
+            // Add each line with + prefix to simulate git diff format
+            const diffFormat = fileContent.split('\n').map(line => `+${line}`).join('\n');
+            return analyzeGitDiff(diffFormat, filePath);
           }
         } catch (e) {
-          // File might not exist or be readable
+           // File might not exist or be readable
+           console.error(`Error reading file ${filePath}:`, e instanceof Error ? e.message : String(e));
         }
         return 'Minor updates';
       }
