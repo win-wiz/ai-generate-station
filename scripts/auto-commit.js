@@ -164,7 +164,8 @@ function analyzeGitDiff(diffOutput, filePath) {
   
   // Check for React component changes
   if (fileExt === '.tsx' || fileExt === '.jsx') {
-    const componentPattern = /[+-].*(?:const|function)\s+([A-Z][a-zA-Z0-9]*)/g;
+    // Look for component definitions (both new and modified)
+    const componentPattern = /(?:const|function)\s+([A-Z][a-zA-Z0-9]*)/g;
     const componentMatches = diffOutput.match(componentPattern);
     if (componentMatches) {
       const components = componentMatches.map(match => {
@@ -173,8 +174,18 @@ function analyzeGitDiff(diffOutput, filePath) {
       }).filter((name, index, arr) => arr.indexOf(name) === index);
       
       if (components.length > 0) {
-        changes.push(`Updated ${components.slice(0, 2).join(', ')} ${components.length > 2 ? `and ${components.length - 2} more components` : 'component' + (components.length > 1 ? 's' : '')}`);
+        const isNewFile = diffOutput.startsWith('+');
+        const action = isNewFile ? 'Added' : 'Updated';
+        changes.push(`${action} ${components.slice(0, 2).join(', ')} ${components.length > 2 ? `and ${components.length - 2} more components` : 'component' + (components.length > 1 ? 's' : '')}`);
       }
+    }
+    
+    // Check for hooks usage
+    const hooksPattern = /use[A-Z][a-zA-Z0-9]*/g;
+    const hooksMatches = diffOutput.match(hooksPattern);
+    if (hooksMatches) {
+      const hooks = [...new Set(hooksMatches)].slice(0, 3);
+      changes.push(`Uses React hooks: ${hooks.join(', ')}`);
     }
   }
   
