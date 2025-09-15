@@ -240,38 +240,24 @@ function generateCommitMessage(changes) {
   const bodyParts = [];
   
   if (changes.added.length > 0) {
-     bodyParts.push(`\n## Added Files (${changes.added.length})`);
-     changes.added.forEach(file => {
-       const fileName = path.basename(file);
-       const fileExt = path.extname(file);
-       let description = 'New file added';
-       
-       // Generate description based on file type
-       if (fileExt === '.js' || fileExt === '.ts') {
-         description = 'New JavaScript/TypeScript module';
-       } else if (fileExt === '.tsx' || fileExt === '.jsx') {
-         description = 'New React component';
-       } else if (fileExt === '.json') {
-         description = 'Configuration or data file';
-       } else if (fileExt === '.md') {
-         description = 'Documentation file';
-       } else if (fileExt === '.css' || fileExt === '.scss') {
-         description = 'Stylesheet file';
-       } else if (fileExt === '.html') {
-         description = 'HTML template file';
-       }
-       
-       bodyParts.push(`- ${fileName}: ${description}`);
-     });
-   }
+      bodyParts.push(`\n## Added Files (${changes.added.length})`);
+      changes.added.forEach(file => {
+        const fileName = path.basename(file);
+        const specificChanges = analyzeFileChanges(file);
+        
+        bodyParts.push(`- ${fileName}: ${specificChanges}`);
+      });
+    }
   
   if (changes.untracked.length > 0) {
-    bodyParts.push(`\n## New Untracked Files (${changes.untracked.length})`);
-    changes.untracked.forEach(file => {
-      const fileName = path.basename(file);
-      bodyParts.push(`- ${fileName}: Added to version control`);
-    });
-  }
+     bodyParts.push(`\n## New Untracked Files (${changes.untracked.length})`);
+     changes.untracked.forEach(file => {
+       const fileName = path.basename(file);
+       const specificChanges = analyzeFileChanges(file);
+       
+       bodyParts.push(`- ${fileName}: ${specificChanges}`);
+     });
+   }
   
   if (changes.modified.length > 0) {
      bodyParts.push(`\n## Modified Files (${changes.modified.length})`);
