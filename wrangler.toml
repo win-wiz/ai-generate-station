@@ -1,0 +1,73 @@
+# Cloudflare Workers Configuration
+name = "ai-generate-station"
+main = "src/index.js"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Node.js compatibility for Next.js
+node_compat = true
+
+# Environment variables
+[env.production.vars]
+NODE_ENV = "production"
+
+[env.development.vars]
+NODE_ENV = "development"
+
+# D1 Database bindings
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "ai-generate-station-db"
+database_id = "" # This will be filled by the deployment script
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "ai-generate-station-db-dev"
+database_id = "" # For local development
+
+# KV namespace bindings (if needed for caching)
+# [[env.production.kv_namespaces]]
+# binding = "CACHE"
+# id = ""
+
+# R2 bucket bindings (if needed for file storage)
+# [[env.production.r2_buckets]]
+# binding = "STORAGE"
+# bucket_name = "ai-generate-station-storage"
+
+# Durable Objects (if needed for real-time features)
+# [[durable_objects.bindings]]
+# name = "CHAT_ROOM"
+# class_name = "ChatRoom"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Routes configuration
+# [[routes]]
+# pattern = "ai-generate-station.your-domain.com/*"
+# zone_name = "your-domain.com"
+
+# Custom domains (uncomment and configure as needed)
+# [[env.production.routes]]
+# pattern = "ai-generate-station.your-domain.com/*"
+# custom_domain = true
+
+# Worker limits and settings
+[limits]
+cpu_ms = 50000
+
+# Analytics and monitoring
+[observability]
+enabled = true
+
+# Miniflare configuration for local development
+[miniflare]
+kv_persist = true
+d1_persist = true
+cache_persist = true
+
+# Compatibility settings
+[compatibility_flags]
+nodejs_compat = true

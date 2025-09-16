@@ -13,7 +13,22 @@ export const env = createEnv({
         : z.string().optional(),
     AUTH_DISCORD_ID: z.string().optional(),
     AUTH_DISCORD_SECRET: z.string().optional(),
-    DATABASE_URL: z.string().url().optional(),
+    DATABASE_URL: z
+      .string()
+      .min(1, "Database URL is required")
+      .refine(
+        (url) => 
+          url.startsWith("file:") || 
+          url.startsWith("http") || 
+          url.startsWith("libsql:") ||
+          url === "d1-local" ||
+          url === "d1-remote",
+        "Database URL must be a valid file path, HTTP URL, LibSQL URL, or D1 identifier"
+      ),
+    // Cloudflare D1 specific environment variables
+    CLOUDFLARE_D1_TOKEN: z.string().optional(),
+    CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
+    CLOUDFLARE_DATABASE_ID: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -37,6 +52,9 @@ export const env = createEnv({
     AUTH_DISCORD_ID: process.env.AUTH_DISCORD_ID,
     AUTH_DISCORD_SECRET: process.env.AUTH_DISCORD_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
+    CLOUDFLARE_D1_TOKEN: process.env.CLOUDFLARE_D1_TOKEN,
+    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_DATABASE_ID: process.env.CLOUDFLARE_DATABASE_ID,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**
