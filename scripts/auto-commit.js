@@ -438,42 +438,104 @@ function generateCommitMessage(changes) {
 /**
  * Extract business context from file changes
  * @param {string[]} files - List of changed files
- * @returns {{purpose: string, domain: string, features: string[]}} Business context
+ * @returns {{purpose: string, domain: string, features: string[], scope: string, impact: string}} Business context
  */
 function extractBusinessContext(files) {
-  const context = { purpose: '', domain: '', features: [] };
+  /** @type {{purpose: string, domain: string, features: string[], scope: string, impact: string}} */
+  const context = { purpose: '', domain: '', features: [], scope: '', impact: '' };
   
   // Analyze file types and patterns to determine business purpose
   const fileTypes = {
     components: files.filter(f => f.includes('component') || f.endsWith('.tsx') || f.endsWith('.jsx')),
     api: files.filter(f => f.includes('api') || f.includes('service') || f.includes('endpoint')),
-    database: files.filter(f => f.includes('db') || f.includes('schema') || f.includes('migration')),
-    config: files.filter(f => f.includes('config') || f.endsWith('.json') || f.endsWith('.env')),
+    database: files.filter(f => f.includes('db') || f.includes('schema') || f.includes('migration') || f.includes('drizzle')),
+    config: files.filter(f => f.includes('config') || f.endsWith('.json') || f.endsWith('.env') || f.includes('wrangler')),
     styles: files.filter(f => f.includes('style') || f.endsWith('.css') || f.endsWith('.scss')),
     tests: files.filter(f => f.includes('test') || f.includes('spec')),
     docs: files.filter(f => f.includes('readme') || f.endsWith('.md')),
-    scripts: files.filter(f => f.includes('script') || f.includes('tool'))
+    scripts: files.filter(f => f.includes('script') || f.includes('tool') || f.includes('auto-commit')),
+    utils: files.filter(f => f.includes('util') || f.includes('helper') || f.includes('lib')),
+    auth: files.filter(f => f.includes('auth') || f.includes('login') || f.includes('user')),
+    ui: files.filter(f => f.includes('ui/') || f.includes('button') || f.includes('form') || f.includes('card'))
   };
   
-  // Determine primary purpose
-  if (fileTypes.components.length > 0) {
-    context.purpose = 'Enhance user interface and component functionality';
-    context.domain = 'Frontend';
-  } else if (fileTypes.api.length > 0) {
-    context.purpose = 'Improve backend services and API functionality';
-    context.domain = 'Backend';
-  } else if (fileTypes.database.length > 0) {
-    context.purpose = 'Update data models and database structure';
-    context.domain = 'Database';
-  } else if (fileTypes.config.length > 0) {
-    context.purpose = 'Optimize project configuration and settings';
-    context.domain = 'Configuration';
-  } else if (fileTypes.tests.length > 0) {
-    context.purpose = 'Strengthen test coverage and quality assurance';
-    context.domain = 'Testing';
-  } else if (fileTypes.scripts.length > 0) {
-    context.purpose = 'Improve development tools and automation';
-    context.domain = 'DevOps';
+  // Determine scope and impact
+  const totalFiles = files.length;
+  if (totalFiles === 1) {
+    context.scope = 'focused';
+  } else if (totalFiles <= 3) {
+    context.scope = 'targeted';
+  } else if (totalFiles <= 6) {
+    context.scope = 'moderate';
+  } else {
+    context.scope = 'comprehensive';
+  }
+  
+  // Determine primary purpose with more nuanced analysis
+  const priorities = [];
+  
+  if (fileTypes.components.length > 0 || fileTypes.ui.length > 0) {
+    priorities.push({ type: 'Frontend', purpose: 'Enhance user interface and component functionality', weight: fileTypes.components.length + fileTypes.ui.length });
+  }
+  
+  if (fileTypes.api.length > 0) {
+    priorities.push({ type: 'Backend', purpose: 'Improve backend services and API functionality', weight: fileTypes.api.length });
+  }
+  
+  if (fileTypes.database.length > 0) {
+    priorities.push({ type: 'Database', purpose: 'Update data models and database structure', weight: fileTypes.database.length });
+  }
+  
+  if (fileTypes.auth.length > 0) {
+    priorities.push({ type: 'Authentication', purpose: 'Enhance authentication and user management', weight: fileTypes.auth.length });
+  }
+  
+  if (fileTypes.config.length > 0) {
+    priorities.push({ type: 'Configuration', purpose: 'Optimize project configuration and deployment settings', weight: fileTypes.config.length });
+  }
+  
+  if (fileTypes.scripts.length > 0) {
+    priorities.push({ type: 'DevOps', purpose: 'Improve development tools and automation workflows', weight: fileTypes.scripts.length });
+  }
+  
+  if (fileTypes.tests.length > 0) {
+    priorities.push({ type: 'Testing', purpose: 'Strengthen test coverage and quality assurance', weight: fileTypes.tests.length });
+  }
+  
+  if (fileTypes.docs.length > 0) {
+    priorities.push({ type: 'Documentation', purpose: 'Update project documentation and guides', weight: fileTypes.docs.length });
+  }
+  
+  if (fileTypes.utils.length > 0) {
+    priorities.push({ type: 'Utilities', purpose: 'Enhance utility functions and shared libraries', weight: fileTypes.utils.length });
+  }
+  
+  // Select the highest priority purpose
+  if (priorities.length > 0) {
+    const sortedPriorities = priorities.sort((a, b) => b.weight - a.weight);
+    const topPriority = sortedPriorities[0];
+    if (topPriority) {
+      context.domain = topPriority.type;
+      context.purpose = topPriority.purpose;
+      
+      // Add secondary purposes if significant
+      const secondaryPurposes = sortedPriorities.filter(p => p !== topPriority && p.weight >= 2);
+      if (secondaryPurposes.length > 0) {
+        context.features = secondaryPurposes.map(p => p.type.toLowerCase());
+      }
+    }
+  } else {
+    context.purpose = 'General code improvements and maintenance';
+    context.domain = 'General';
+  }
+  
+  // Determine impact level
+  if (fileTypes.database.length > 0 || fileTypes.api.length > 2) {
+    context.impact = 'high';
+  } else if (fileTypes.components.length > 2 || fileTypes.config.length > 1) {
+    context.impact = 'medium';
+  } else {
+    context.impact = 'low';
   }
   
   return context;
@@ -482,11 +544,30 @@ function extractBusinessContext(files) {
 /**
  * Generate intelligent commit title based on business context
  * @param {{added: string[], untracked: string[], modified: string[], deleted: string[], renamed: string[]}} changes - File changes object
- * @param {{purpose: string, domain: string, features: string[]}} businessContext - Business context
+ * @param {{purpose: string, domain: string, features: string[], scope: string, impact: string}} businessContext - Business context
  * @returns {string|null} Intelligent title or null
  */
 function generateIntelligentTitle(changes, businessContext) {
   const allFiles = [...changes.added, ...changes.untracked, ...changes.modified];
+  const { domain, purpose, features, scope, impact } = businessContext;
+  
+  // Create a conceptual summary based on the business context
+  const createConceptualSummary = () => {
+    if (features.length > 0) {
+      return features.slice(0, 2).join(' and ');
+    }
+    
+    // Extract key concepts from purpose
+    const purposeWords = purpose.toLowerCase().split(' ');
+    const keyWords = purposeWords.filter(word => 
+      !['and', 'or', 'the', 'a', 'an', 'to', 'for', 'in', 'on', 'at', 'by', 'with'].includes(word)
+    ).slice(0, 3);
+    
+    return keyWords.join(' ');
+  };
+  
+  const conceptSummary = createConceptualSummary();
+  const scopePrefix = scope ? `${scope}` : domain.toLowerCase();
   
   // Check for specific patterns
   const patterns = {
@@ -500,23 +581,43 @@ function generateIntelligentTitle(changes, businessContext) {
     testing: allFiles.some(f => f.includes('test') || f.includes('spec'))
   };
   
-  // Generate title based on dominant pattern
-  if (patterns.newFeature && businessContext.domain === 'Frontend') {
-    return 'feat: add new UI components and enhance user experience';
+  // Pattern-based title generation with conceptual summaries
+  if (patterns.newFeature) {
+    if (domain === 'Frontend' || domain === 'UI') {
+      return `feat(${scopePrefix}): add ${conceptSummary} functionality`;
+    } else if (domain === 'Backend' || domain === 'API') {
+      return `feat(${scopePrefix}): implement ${conceptSummary} services`;
+    } else if (domain === 'Database') {
+      return `feat(${scopePrefix}): add ${conceptSummary} data layer`;
+    }
+    return `feat: add ${conceptSummary} feature`;
   } else if (patterns.bugfix) {
-    return 'fix: resolve issues and improve system stability';
+    return `fix(${scopePrefix}): resolve ${conceptSummary} issues`;
   } else if (patterns.refactor) {
-    return 'refactor: improve code structure and maintainability';
+    if (impact === 'high') {
+      return `refactor(${scopePrefix}): restructure ${conceptSummary} architecture`;
+    }
+    return `refactor(${scopePrefix}): improve ${conceptSummary} implementation`;
   } else if (patterns.performance) {
-    return 'perf: optimize performance and resource usage';
+    return `perf(${scopePrefix}): optimize ${conceptSummary} performance`;
   } else if (patterns.security) {
-    return 'security: enhance security measures and authentication';
+    return `security(${scopePrefix}): enhance ${conceptSummary} security`;
   } else if (patterns.documentation) {
-    return 'docs: update documentation and project information';
+    return `docs(${scopePrefix}): update ${conceptSummary} documentation`;
   } else if (patterns.configuration) {
-    return 'config: update project configuration and settings';
+    if (conceptSummary.includes('config') || conceptSummary.includes('setup')) {
+      return `chore(config): update ${conceptSummary}`;
+    }
+    return `chore(deps): update ${conceptSummary} dependencies`;
   } else if (patterns.testing) {
-    return 'test: improve test coverage and quality assurance';
+    return `test(${scopePrefix}): add ${conceptSummary} test coverage`;
+  }
+  
+  // Fallback with intelligent categorization
+  if (purpose.includes('improve') || purpose.includes('enhance')) {
+    return `improve(${scopePrefix}): ${conceptSummary}`;
+  } else if (purpose.includes('update') || purpose.includes('modify')) {
+    return `update(${scopePrefix}): ${conceptSummary}`;
   }
   
   return null;
@@ -609,60 +710,115 @@ function generateCategorizedChanges(changes) {
   const optimizations = [];
   /** @type {string[]} */
   const bugFixes = [];
+  /** @type {string[]} */
+  const configurations = [];
 
   // Analyze each modified file
   changes.modified.forEach(/** @param {string} file */ (file) => {
     const analysis = analyzeFileChanges(file);
+    const fileName = path.basename(file);
+    const fileExt = path.extname(file);
     
-    // Categorize based on analysis content
-    if (analysis.includes('Added') || analysis.includes('新增') || analysis.includes('component')) {
+    // Categorize based on analysis content and file type
+    if (analysis.includes('Added') || analysis.includes('新增') || analysis.includes('component') || analysis.includes('function')) {
       const feature = extractFeatureDescription(analysis, file);
-      if (feature) newFeatures.push(feature);
+      if (feature) {
+        newFeatures.push(feature);
+      } else {
+        newFeatures.push(`new functionality in ${fileName}`);
+      }
     }
     
-    if (analysis.includes('optimization') || analysis.includes('performance') || analysis.includes('memoization')) {
+    if (analysis.includes('optimization') || analysis.includes('performance') || analysis.includes('memoization') || analysis.includes('refactor')) {
       const optimization = extractOptimizationDescription(analysis, file);
-      if (optimization) optimizations.push(optimization);
+      if (optimization) {
+        optimizations.push(optimization);
+      } else {
+        optimizations.push(`performance improvements in ${fileName}`);
+      }
     }
     
-    if (analysis.includes('fix') || analysis.includes('修复') || analysis.includes('error')) {
+    if (analysis.includes('fix') || analysis.includes('修复') || analysis.includes('error') || analysis.includes('bug')) {
       const fix = extractFixDescription(analysis, file);
-      if (fix) bugFixes.push(fix);
+      if (fix) {
+        bugFixes.push(fix);
+      } else {
+        bugFixes.push(`error handling in ${fileName}`);
+      }
+    }
+    
+    // Handle configuration files
+    if (fileExt === '.json' || fileExt === '.config.js' || fileExt === '.ts' && fileName.includes('config')) {
+      configurations.push(`${fileName} settings`);
     }
     
     // Default categorization for other changes
-    if (!analysis.includes('Added') && !analysis.includes('optimization') && !analysis.includes('fix')) {
+    if (!analysis.includes('Added') && !analysis.includes('optimization') && !analysis.includes('fix') && !configurations.some(config => config.includes(fileName))) {
       const general = extractGeneralDescription(analysis, file);
-      if (general) optimizations.push(general);
+      if (general) {
+        optimizations.push(general);
+      } else {
+        optimizations.push(`code structure in ${fileName}`);
+      }
     }
   });
 
-  // Analyze added files
+  // Analyze added files with better categorization
   changes.added.forEach(/** @param {string} file */ (file) => {
-    const fileName = file.split('/').pop() || file;
-    newFeatures.push(`${fileName} 组件`);
+    const fileName = path.basename(file);
+    const fileExt = path.extname(file);
+    
+    if (fileExt === '.tsx' || fileExt === '.jsx') {
+      newFeatures.push(`${fileName} component`);
+    } else if (fileExt === '.ts' || fileExt === '.js') {
+      if (fileName.includes('util') || fileName.includes('helper')) {
+        newFeatures.push(`${fileName} utility module`);
+      } else if (fileName.includes('config')) {
+        configurations.push(`${fileName} configuration`);
+      } else {
+        newFeatures.push(`${fileName} module`);
+      }
+    } else if (fileExt === '.md') {
+      configurations.push(`${fileName} documentation`);
+    } else {
+      newFeatures.push(`${fileName} file`);
+    }
+  });
+
+  // Analyze untracked files
+  changes.untracked.forEach(/** @param {string} file */ (file) => {
+    const fileName = path.basename(file);
+    newFeatures.push(`${fileName} file`);
   });
 
   // Analyze deleted files
   changes.deleted.forEach(/** @param {string} file */ (file) => {
-    const fileName = file.split('/').pop() || file;
-    optimizations.push(`移除 ${fileName}`);
+    const fileName = path.basename(file);
+    optimizations.push(`removed ${fileName}`);
   });
 
-  // Format the categorized summary
+  // Format the categorized summary with better English descriptions
   /** @type {string[]} */
   const summary = [];
   
   if (newFeatures.length > 0) {
-    summary.push(`1. 新增功能：增加 ${newFeatures.join('、')} 逻辑`);
+    const featureList = newFeatures.slice(0, 3).join(', ') + (newFeatures.length > 3 ? ` and ${newFeatures.length - 3} more` : '');
+    summary.push(`1. New Features: Added ${featureList}`);
   }
   
   if (optimizations.length > 0) {
-    summary.push(`2. 功能优化：修改了 ${optimizations.join('、')} 实现`);
+    const optimizationList = optimizations.slice(0, 3).join(', ') + (optimizations.length > 3 ? ` and ${optimizations.length - 3} more` : '');
+    summary.push(`2. Improvements: Enhanced ${optimizationList}`);
   }
   
   if (bugFixes.length > 0) {
-    summary.push(`3. 问题修复：解决了 ${bugFixes.join('、')} 问题`);
+    const fixList = bugFixes.slice(0, 3).join(', ') + (bugFixes.length > 3 ? ` and ${bugFixes.length - 3} more` : '');
+    summary.push(`3. Bug Fixes: Resolved ${fixList}`);
+  }
+  
+  if (configurations.length > 0) {
+    const configList = configurations.slice(0, 3).join(', ') + (configurations.length > 3 ? ` and ${configurations.length - 3} more` : '');
+    summary.push(`4. Configuration: Updated ${configList}`);
   }
 
   return summary.join('\n');
@@ -675,16 +831,18 @@ function generateCategorizedChanges(changes) {
  * @returns {string} Feature description
  */
 function extractFeatureDescription(analysis, file) {
-  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  const fileName = path.basename(file).replace(/\.(tsx?|jsx?)$/, '') || 'component';
   
-  if (analysis.includes('forms')) return '表单处理';
-  if (analysis.includes('navigation')) return '导航功能';
-  if (analysis.includes('authentication')) return '用户认证';
-  if (analysis.includes('API') || analysis.includes('api')) return 'API接口';
-  if (analysis.includes('database')) return '数据库操作';
-  if (analysis.includes('component')) return `${fileName} 组件`;
+  if (analysis.includes('forms')) return 'form handling logic';
+  if (analysis.includes('navigation')) return 'navigation functionality';
+  if (analysis.includes('authentication')) return 'user authentication system';
+  if (analysis.includes('API') || analysis.includes('api')) return 'API integration';
+  if (analysis.includes('database')) return 'database operations';
+  if (analysis.includes('component')) return `${fileName} component logic`;
+  if (analysis.includes('hook')) return `${fileName} custom hook`;
+  if (analysis.includes('util')) return `${fileName} utility functions`;
   
-  return fileName;
+  return `${fileName} functionality`;
 }
 
 /**
@@ -694,16 +852,18 @@ function extractFeatureDescription(analysis, file) {
  * @returns {string} Optimization description
  */
 function extractOptimizationDescription(analysis, file) {
-  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  const fileName = path.basename(file).replace(/\.(tsx?|jsx?)$/, '') || 'component';
   
-  if (analysis.includes('memoization')) return '组件缓存机制';
-  if (analysis.includes('performance')) return '性能优化';
-  if (analysis.includes('lazy')) return '懒加载';
-  if (analysis.includes('debounce')) return '防抖处理';
-  if (analysis.includes('throttle')) return '节流处理';
-  if (analysis.includes('state')) return '状态管理';
+  if (analysis.includes('memoization')) return 'component memoization';
+  if (analysis.includes('performance')) return 'performance optimizations';
+  if (analysis.includes('lazy')) return 'lazy loading implementation';
+  if (analysis.includes('debounce')) return 'debounce handling';
+  if (analysis.includes('throttle')) return 'throttle implementation';
+  if (analysis.includes('state')) return 'state management';
+  if (analysis.includes('refactor')) return `${fileName} code structure`;
+  if (analysis.includes('algorithm')) return 'algorithm efficiency';
   
-  return `${fileName} 逻辑`;
+  return `${fileName} implementation`;
 }
 
 /**
@@ -713,14 +873,16 @@ function extractOptimizationDescription(analysis, file) {
  * @returns {string} Fix description
  */
 function extractFixDescription(analysis, file) {
-  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  const fileName = path.basename(file).replace(/\.(tsx?|jsx?)$/, '') || 'component';
   
-  if (analysis.includes('type')) return '类型错误';
-  if (analysis.includes('validation')) return '数据验证';
-  if (analysis.includes('error')) return '错误处理';
-  if (analysis.includes('bug')) return '功能缺陷';
+  if (analysis.includes('type')) return 'type safety issues';
+  if (analysis.includes('validation')) return 'data validation logic';
+  if (analysis.includes('error')) return 'error handling mechanisms';
+  if (analysis.includes('bug')) return 'functional defects';
+  if (analysis.includes('memory')) return 'memory leak issues';
+  if (analysis.includes('security')) return 'security vulnerabilities';
   
-  return `${fileName} 问题`;
+  return `${fileName} issues`;
 }
 
 /**
@@ -730,14 +892,16 @@ function extractFixDescription(analysis, file) {
  * @returns {string} General description
  */
 function extractGeneralDescription(analysis, file) {
-  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  const fileName = path.basename(file).replace(/\.(tsx?|jsx?)$/, '') || 'component';
   
-  if (analysis.includes('styling')) return '样式调整';
-  if (analysis.includes('layout')) return '布局优化';
-  if (analysis.includes('config')) return '配置更新';
-  if (analysis.includes('import')) return '依赖管理';
+  if (analysis.includes('styling')) return 'styling adjustments';
+  if (analysis.includes('layout')) return 'layout improvements';
+  if (analysis.includes('config')) return 'configuration updates';
+  if (analysis.includes('import')) return 'dependency management';
+  if (analysis.includes('documentation')) return 'code documentation';
+  if (analysis.includes('cleanup')) return 'code cleanup';
   
-  return `${fileName} 结构`;
+  return `${fileName} structure`;
 }
 
 /**
