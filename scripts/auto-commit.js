@@ -394,7 +394,7 @@ function generateCommitMessage(changes) {
     }
 
     if (titleParts.length === 1) {
-      commitTitle = titleParts[0];
+      commitTitle = titleParts[0] || null;
     } else if (titleParts.length === 2) {
       commitTitle = titleParts.join(' and ');
     } else {
@@ -410,18 +410,17 @@ function generateCommitMessage(changes) {
     bodyParts.push(`\n**Purpose:** ${businessContext.purpose}`);
   }
   
+  // Add categorized changes summary
+  const categorizedChanges = generateCategorizedChanges(changes);
+  if (categorizedChanges) {
+    bodyParts.push(`\n**Changes:**\n${categorizedChanges}`);
+  }
+  
   // Add technical changes summary
   const technicalSummary = generateTechnicalSummary(changes);
   if (technicalSummary.length > 0) {
-    bodyParts.push(`\n**Technical Changes:**`);
+    bodyParts.push(`\n**Technical Details:**`);
     technicalSummary.forEach(item => bodyParts.push(`• ${item}`));
-  }
-  
-  // Add detailed file changes (more concise format)
-  const fileChanges = generateFileChangesSummary(changes);
-  if (fileChanges.length > 0) {
-    bodyParts.push(`\n**Files Modified:**`);
-    fileChanges.forEach(item => bodyParts.push(`• ${item}`));
   }
   
   // Add impact assessment
@@ -596,6 +595,149 @@ function generateFileChangesSummary(changes) {
   });
   
   return summary;
+}
+
+/**
+ * Generate categorized changes summary
+ * @param {{added: string[], untracked: string[], modified: string[], deleted: string[], renamed: string[]}} changes - File changes object
+ * @returns {string} Categorized changes summary
+ */
+function generateCategorizedChanges(changes) {
+  /** @type {string[]} */
+  const newFeatures = [];
+  /** @type {string[]} */
+  const optimizations = [];
+  /** @type {string[]} */
+  const bugFixes = [];
+
+  // Analyze each modified file
+  changes.modified.forEach(/** @param {string} file */ (file) => {
+    const analysis = analyzeFileChanges(file);
+    
+    // Categorize based on analysis content
+    if (analysis.includes('Added') || analysis.includes('新增') || analysis.includes('component')) {
+      const feature = extractFeatureDescription(analysis, file);
+      if (feature) newFeatures.push(feature);
+    }
+    
+    if (analysis.includes('optimization') || analysis.includes('performance') || analysis.includes('memoization')) {
+      const optimization = extractOptimizationDescription(analysis, file);
+      if (optimization) optimizations.push(optimization);
+    }
+    
+    if (analysis.includes('fix') || analysis.includes('修复') || analysis.includes('error')) {
+      const fix = extractFixDescription(analysis, file);
+      if (fix) bugFixes.push(fix);
+    }
+    
+    // Default categorization for other changes
+    if (!analysis.includes('Added') && !analysis.includes('optimization') && !analysis.includes('fix')) {
+      const general = extractGeneralDescription(analysis, file);
+      if (general) optimizations.push(general);
+    }
+  });
+
+  // Analyze added files
+  changes.added.forEach(/** @param {string} file */ (file) => {
+    const fileName = file.split('/').pop() || file;
+    newFeatures.push(`${fileName} 组件`);
+  });
+
+  // Analyze deleted files
+  changes.deleted.forEach(/** @param {string} file */ (file) => {
+    const fileName = file.split('/').pop() || file;
+    optimizations.push(`移除 ${fileName}`);
+  });
+
+  // Format the categorized summary
+  /** @type {string[]} */
+  const summary = [];
+  
+  if (newFeatures.length > 0) {
+    summary.push(`1. 新增功能：增加 ${newFeatures.join('、')} 逻辑`);
+  }
+  
+  if (optimizations.length > 0) {
+    summary.push(`2. 功能优化：修改了 ${optimizations.join('、')} 实现`);
+  }
+  
+  if (bugFixes.length > 0) {
+    summary.push(`3. 问题修复：解决了 ${bugFixes.join('、')} 问题`);
+  }
+
+  return summary.join('\n');
+}
+
+/**
+ * Extract feature description from analysis
+ * @param {string} analysis - File analysis result
+ * @param {string} file - File path
+ * @returns {string} Feature description
+ */
+function extractFeatureDescription(analysis, file) {
+  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  
+  if (analysis.includes('forms')) return '表单处理';
+  if (analysis.includes('navigation')) return '导航功能';
+  if (analysis.includes('authentication')) return '用户认证';
+  if (analysis.includes('API') || analysis.includes('api')) return 'API接口';
+  if (analysis.includes('database')) return '数据库操作';
+  if (analysis.includes('component')) return `${fileName} 组件`;
+  
+  return fileName;
+}
+
+/**
+ * Extract optimization description from analysis
+ * @param {string} analysis - File analysis result
+ * @param {string} file - File path
+ * @returns {string} Optimization description
+ */
+function extractOptimizationDescription(analysis, file) {
+  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  
+  if (analysis.includes('memoization')) return '组件缓存机制';
+  if (analysis.includes('performance')) return '性能优化';
+  if (analysis.includes('lazy')) return '懒加载';
+  if (analysis.includes('debounce')) return '防抖处理';
+  if (analysis.includes('throttle')) return '节流处理';
+  if (analysis.includes('state')) return '状态管理';
+  
+  return `${fileName} 逻辑`;
+}
+
+/**
+ * Extract fix description from analysis
+ * @param {string} analysis - File analysis result
+ * @param {string} file - File path
+ * @returns {string} Fix description
+ */
+function extractFixDescription(analysis, file) {
+  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  
+  if (analysis.includes('type')) return '类型错误';
+  if (analysis.includes('validation')) return '数据验证';
+  if (analysis.includes('error')) return '错误处理';
+  if (analysis.includes('bug')) return '功能缺陷';
+  
+  return `${fileName} 问题`;
+}
+
+/**
+ * Extract general description from analysis
+ * @param {string} analysis - File analysis result
+ * @param {string} file - File path
+ * @returns {string} General description
+ */
+function extractGeneralDescription(analysis, file) {
+  const fileName = file.split('/').pop()?.replace(/\.(tsx?|jsx?)$/, '') || 'component';
+  
+  if (analysis.includes('styling')) return '样式调整';
+  if (analysis.includes('layout')) return '布局优化';
+  if (analysis.includes('config')) return '配置更新';
+  if (analysis.includes('import')) return '依赖管理';
+  
+  return `${fileName} 结构`;
 }
 
 /**
