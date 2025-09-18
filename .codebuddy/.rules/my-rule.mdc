@@ -6,7 +6,7 @@
   "techStack": {
     "mainApp": {
       "framework": "Next.js 15 (App Router)",
-      "auth": "Next-Auth.js v4",
+      "auth": "Next-Auth.js v5",
       "database": "Drizzle ORM",
       "ui": "shadcn/ui + Tailwind CSS",
       "deployment": "Cloudflare Pages (for the Next.js app)"

@@ -213,26 +213,19 @@ export default function LoginForm({
 
       const targetUrl = redirectTo || ROUTES.DASHBOARD;
       
-      // 添加超时处理
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('OAuth login timeout')), 15000); // 15秒超时
-      });
+      console.log('Starting OAuth login:', { provider, targetUrl });
       
-      const signInPromise = signIn(provider, { 
+      // 使用 NextAuth 的 signIn 函数，让它处理重定向
+      const result = await signIn(provider, { 
         callbackUrl: targetUrl,
-        redirect: false
+        redirect: true // 改为 true，让 NextAuth 处理重定向
       });
       
-      const result = await Promise.race([signInPromise, timeoutPromise]) as any;
-      
-      if (result && typeof result === 'object' && result.ok) {
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          // 使用 router.replace 而不是 window.location.href
-          router.replace(targetUrl);
-        }
-      } else if (result && typeof result === 'object' && result.error) {
+      // 如果 redirect: true，这里的代码通常不会执行
+      // 但为了防止意外情况，保留错误处理
+      if (result && typeof result === 'object' && result.error) {
+        console.error('OAuth login error:', result.error);
+        
         const errorMessages: Record<string, string> = {
           'OAuthSignin': 'OAuth 登录失败，请重试',
           'OAuthCallback': 'OAuth 回调失败，请重试',
@@ -247,7 +240,8 @@ export default function LoginForm({
         };
         
         const errorMessage = errorMessages[result.error] || errorMessages['Default'];
-        setErrors({ general: errorMessage ?? '' });
+        setErrors({ general: errorMessage });
+        setOauthLoading(null);
       }
     } catch (error) {
       console.error('OAuth login error:', error);
@@ -265,10 +259,9 @@ export default function LoginForm({
       }
       
       setErrors({ general: errorMessage });
-    } finally {
       setOauthLoading(null);
     }
-  }, [onSuccess, redirectTo, router]);
+  }, [redirectTo, router]);
 
   // 切换登录/注册模式
   const toggleMode = useCallback(() => {

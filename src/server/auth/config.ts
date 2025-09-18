@@ -55,12 +55,6 @@ export const authConfig = {
           scope: "read:user user:email",
         },
       },
-      // 禁用PKCE以解决GitHub OAuth验证问题
-      checks: ["state"],
-      // 添加超时配置
-      httpOptions: {
-        timeout: 10000, // 10秒超时
-      },
     }),
     /**
      * ...add more providers here.
@@ -93,6 +87,12 @@ export const authConfig = {
         return false;
       }
       
+      // 检查必要的用户信息
+      if (!user?.email) {
+        console.error('User email is required for sign-in');
+        return false;
+      }
+      
       // 允许所有OAuth登录
       return true;
     },
@@ -110,6 +110,19 @@ export const authConfig = {
       if (url.startsWith(baseUrl)) {
         console.log('Redirecting to same domain URL:', url);
         return url;
+      }
+      
+      // 检查是否有 callbackUrl 参数
+      try {
+        const urlObj = new URL(url);
+        const callbackUrl = urlObj.searchParams.get('callbackUrl');
+        if (callbackUrl && callbackUrl.startsWith('/')) {
+          const targetUrl = `${baseUrl}${callbackUrl}`;
+          console.log('Redirecting to callback URL:', targetUrl);
+          return targetUrl;
+        }
+      } catch (e) {
+        console.log('Failed to parse URL for callback:', e);
       }
       
       // 登录成功后默认重定向到 dashboard

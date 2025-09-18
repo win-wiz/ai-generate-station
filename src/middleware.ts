@@ -4,15 +4,22 @@ import type { NextRequest } from 'next/server';
 export function middleware(req: NextRequest) {
   const { nextUrl } = req;
   
-  // 简单的路由保护，不依赖数据库
-  // 检查是否有认证 cookie 或 token
-  const authToken = req.cookies.get('next-auth.session-token') || 
-                   req.cookies.get('__Secure-next-auth.session-token');
-  const isLoggedIn = !!authToken;
+  // Auth.js (NextAuth v5) JWT 策略使用的 cookie 名称
+  // 开发环境: authjs.session-token
+  // 生产环境: __Secure-authjs.session-token
+  const sessionToken = req.cookies.get('authjs.session-token') || 
+                      req.cookies.get('__Secure-authjs.session-token') ||
+                      req.cookies.get('next-auth.session-token') || 
+                      req.cookies.get('__Secure-next-auth.session-token');
+  
+  const isLoggedIn = !!sessionToken?.value;
 
   console.log('Middleware:', {
     pathname: nextUrl.pathname,
     isLoggedIn,
+    hasSessionToken: !!sessionToken,
+    sessionTokenName: sessionToken?.name,
+    sessionTokenValue: sessionToken?.value ? 'present' : 'missing',
     searchParams: nextUrl.searchParams.toString()
   });
 
