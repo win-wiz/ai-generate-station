@@ -247,7 +247,7 @@ export default function LoginForm({
         };
         
         const errorMessage = errorMessages[result.error] || errorMessages['Default'];
-        setErrors({ general: errorMessage });
+        setErrors({ general: errorMessage ?? '' });
       }
     } catch (error) {
       console.error('OAuth login error:', error);
