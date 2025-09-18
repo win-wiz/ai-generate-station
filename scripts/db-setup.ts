@@ -8,6 +8,10 @@
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+config();
 
 const PROJECT_ROOT = process.cwd();
 const DB_FILE = join(PROJECT_ROOT, 'db.sqlite');

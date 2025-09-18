@@ -24,14 +24,15 @@ function createDatabaseClient() {
       throw new Error("D1 database binding not found. Make sure to configure wrangler.toml");
     }
 
-    // Handle local development or standard SQLite/LibSQL
-    const url = env.DATABASE_URL === "d1-local" ? "file:./db.sqlite" : env.DATABASE_URL;
+    // For local development, use in-memory SQLite
+    const url = env.DATABASE_URL === ":memory:" ? ":memory:" : env.DATABASE_URL;
+    
+    console.log("Creating database client with URL:", url);
     
     const client = createClient({
       url,
-      // SQLite specific optimizations
-      ...(url.startsWith("file:") && {
-        syncUrl: undefined,
+      // For in-memory database, no auth token needed
+      ...(url === ":memory:" && {
         authToken: undefined,
       }),
     });
@@ -54,9 +55,8 @@ const globalForDb = globalThis as unknown as {
 function createDatabase() {
   const conn = createDatabaseClient();
   
-  // For now, we'll use LibSQL adapter for all connections
-  // D1 support can be added when deploying to Cloudflare Workers
-  return drizzle(conn as ReturnType<typeof createClient>, { 
+  console.log("Initializing database with LibSQL adapter");
+  return drizzle(conn, { 
     schema,
     logger: env.NODE_ENV === "development",
   });

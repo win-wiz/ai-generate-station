@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1758007518814,
+      "tag": "0000_colorful_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1758009638734,
+      "tag": "0001_lying_omega_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1758011870443,
+      "tag": "0002_tan_prowler",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# my-rule
+
+{
+  "$schema": "https://cdn.codebuddy.ai/schemas/codebuddy-rules.v1.json",
+  "projectOverview": "A full-stack T3 application (Next.js, Drizzle, Next-Auth, Tailwind, shadcn/ui) with additional Hono APIs for Cloudflare Workers.",
+  "techStack": {
+    "mainApp": {
+      "framework": "Next.js 15 (App Router)",
+      "auth": "Next-Auth.js v4",
+      "database": "Drizzle ORM",
+      "ui": "shadcn/ui + Tailwind CSS",
+      "deployment": "Cloudflare Pages (for the Next.js app)"
+    },
+    "apiServices": {
+      "framework": "Hono",
+      "runtime": "Cloudflare Workers",
+      "buildTool": "Vite",
+      "deployment": "Cloudflare Workers"
+    }
+  },
+  "keyConventions": [
+    "For the Next.js app: Use Drizzle for all database queries. Use Next-Auth with `getServerSession` for auth. Style everything with shadcn/ui components.",
+    "For the Next.js app: Data fetching must use Next.js App Router patterns (async Server Components, route handlers).",
+    "For the Next.js app: API routes are in /app/api/[route]/route.ts.",
+    "For Hono APIs: They are separate services deployed on Cloudflare Workers, built with Vite.",
+    "For Hono APIs: Code must be lightweight and stateless, compatible with the Workers runtime.",
+    "For Hono APIs: Use environment variables via `process.env` but be aware of Workers' env binding system.",
+    "All code must be strictly typed with TypeScript."
+  ],
+  "fileStructure": {
+    "nextjsRoot": "/",
+    "honoRoot": "/apps/hono-api/ or /services/api/ (example path)",
+    "components": "/src/components/",
+    "lib": "/src/lib/ (for Drizzle client, Next-Auth config, etc.)",
+    "apiRoutes": "/app/api/[route]/route.ts"
+  }
+}

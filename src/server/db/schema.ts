@@ -1,6 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import { index, primaryKey, sqliteTableCreator } from "drizzle-orm/sqlite-core";
-import { type AdapterAccount } from "next-auth/adapters";
+import { index, primaryKey, sqliteTableCreator, text, integer } from "drizzle-orm/sqlite-core";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -43,7 +42,7 @@ export const posts = createTable(
 
 // AI Generation related tables
 export const aiGenerationTasks = createTable(
-  "ai_generation_task",
+  "task",
   (d) => ({
     id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
     userId: d
@@ -102,6 +101,16 @@ export const users = createTable("user", (d) => ({
   email: d.text({ length: 255 }).notNull(),
   emailVerified: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
   image: d.text({ length: 255 }),
+  // Traditional login fields
+  password: d.text({ length: 255 }), // bcrypt hashed password
+  loginFailedCount: d.integer().default(0).notNull(),
+  lastLoginFailedAt: d.integer({ mode: "timestamp" }),
+  lockedUntil: d.integer({ mode: "timestamp" }),
+  createdAt: d
+    .integer({ mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+  updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -130,7 +139,7 @@ export const accounts = createTable(
       .text({ length: 255 })
       .notNull()
       .references(() => users.id),
-    type: d.text({ length: 255 }).$type<AdapterAccount["type"]>().notNull(),
+    type: d.text({ length: 255 }).$type<"oauth" | "oidc" | "email" | "webauthn">().notNull(),
     provider: d.text({ length: 255 }).notNull(),
     providerAccountId: d.text({ length: 255 }).notNull(),
     refresh_token: d.text(),

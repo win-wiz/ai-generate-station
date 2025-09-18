@@ -11,8 +11,17 @@ export const env = createEnv({
       process.env.NODE_ENV === "production"
         ? z.string()
         : z.string().optional(),
+    NEXTAUTH_URL: z.string().url().optional(),
     AUTH_DISCORD_ID: z.string().optional(),
     AUTH_DISCORD_SECRET: z.string().optional(),
+    // Google OAuth
+    AUTH_GOOGLE_ID: z.string().optional(),
+    AUTH_GOOGLE_SECRET: z.string().optional(),
+    // GitHub OAuth
+    AUTH_GITHUB_ID: z.string().optional(),
+    AUTH_GITHUB_SECRET: z.string().optional(),
+    // JWT Secret for traditional login
+    JWT_SECRET: z.string().optional(),
     DATABASE_URL: z
       .string()
       .min(1, "Database URL is required")
@@ -22,8 +31,9 @@ export const env = createEnv({
           url.startsWith("http") || 
           url.startsWith("libsql:") ||
           url === "d1-local" ||
-          url === "d1-remote",
-        "Database URL must be a valid file path, HTTP URL, LibSQL URL, or D1 identifier"
+          url === "d1-remote" ||
+          url === ":memory:",
+        "Database URL must be a valid file path, HTTP URL, LibSQL URL, D1 identifier, or :memory:"
       ),
     // Cloudflare D1 specific environment variables
     CLOUDFLARE_D1_TOKEN: z.string().optional(),
@@ -49,8 +59,14 @@ export const env = createEnv({
    */
   runtimeEnv: {
     AUTH_SECRET: process.env.AUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     AUTH_DISCORD_ID: process.env.AUTH_DISCORD_ID,
     AUTH_DISCORD_SECRET: process.env.AUTH_DISCORD_SECRET,
+    AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+    AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+    AUTH_GITHUB_ID: process.env.AUTH_GITHUB_ID,
+    AUTH_GITHUB_SECRET: process.env.AUTH_GITHUB_SECRET,
+    JWT_SECRET: process.env.JWT_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     CLOUDFLARE_D1_TOKEN: process.env.CLOUDFLARE_D1_TOKEN,
     CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
