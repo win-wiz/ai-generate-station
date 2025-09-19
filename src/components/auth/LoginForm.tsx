@@ -142,16 +142,23 @@ export default function LoginForm({
 
   // 表单验证
   const validateForm = useCallback((): boolean => {
-    const schema = isLogin ? validators.login : validators.register;
-    const dataToValidate = isLogin 
-      ? { email: formData.email, password: formData.password }
-      : formData;
-    
-    const result = schema(dataToValidate);
-    
-    if (!result.success) {
-      setErrors(result.errors || {});
-      return false;
+    if (isLogin) {
+      const result = validators.login({ 
+        email: formData.email, 
+        password: formData.password 
+      });
+      
+      if (!result.success) {
+        setErrors(result.errors || {});
+        return false;
+      }
+    } else {
+      const result = validators.register(formData);
+      
+      if (!result.success) {
+        setErrors(result.errors || {});
+        return false;
+      }
     }
     
     setErrors({});
@@ -239,7 +246,7 @@ export default function LoginForm({
           'Default': '登录失败，请重试'
         };
         
-        const errorMessage = errorMessages[result.error] || errorMessages['Default'];
+        const errorMessage = errorMessages[result.error || 'Default'] || errorMessages['Default'] || '登录失败，请重试';
         setErrors({ general: errorMessage });
         setOauthLoading(null);
       }

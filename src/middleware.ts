@@ -1,82 +1,105 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { SECURITY_HEADERS, logSecurityEvent } from '@/lib/security';
+import { apiRateLimitMiddleware, getClientIP } from '@/lib/rate-limiter';
 
-export function middleware(req: NextRequest) {
-  const { nextUrl } = req;
-  
-  // Auth.js (NextAuth v5) JWT 策略使用的 cookie 名称
-  // 开发环境: authjs.session-token
-  // 生产环境: __Secure-authjs.session-token
-  const sessionToken = req.cookies.get('authjs.session-token') || 
-                      req.cookies.get('__Secure-authjs.session-token') ||
-                      req.cookies.get('next-auth.session-token') || 
-                      req.cookies.get('__Secure-next-auth.session-token');
-  
-  const isLoggedIn = !!sessionToken?.value;
+// 服务端需要强制保护的API路径（避免直接API访问）
+const protectedApiPaths = ['/api/user'];
 
-  console.log('Middleware:', {
-    pathname: nextUrl.pathname,
-    isLoggedIn,
-    hasSessionToken: !!sessionToken,
-    sessionTokenName: sessionToken?.name,
-    sessionTokenValue: sessionToken?.value ? 'present' : 'missing',
-    searchParams: nextUrl.searchParams.toString()
+// 完全公开的路径
+const publicPaths = ['/', '/login', '/about', '/api/auth', '/api/health'];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const clientIP = getClientIP(request);
+  const userAgent = request.headers.get('user-agent') || '';
+  
+  // API路径速率限制
+  if (pathname.startsWith('/api/')) {
+    const rateLimitResult = apiRateLimitMiddleware(request);
+    
+    if (rateLimitResult.isLimited) {
+      logSecurityEvent({
+        type: 'rate_limit_exceeded',
+        ip: clientIP,
+        userAgent,
+        details: { path: pathname, remainingAttempts: rateLimitResult.remainingAttempts }
+      });
+      
+      return new NextResponse('Too Many Requests', {
+        status: 429,
+        headers: {
+          ...rateLimitResult.headers,
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+        },
+      });
+    }
+  }
+  
+  // 安全头设置
+  const response = NextResponse.next();
+  
+  // 设置完整的安全头
+  Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
   });
-
-  // 公共路由，无需认证
-  const publicRoutes = ['/', '/about', '/login'];
-  const isPublicRoute = publicRoutes.includes(nextUrl.pathname) || 
-                       nextUrl.pathname.startsWith('/api/');
-
-  // 受保护的路由
-  const protectedRoutes = ['/dashboard', '/profile', '/settings'];
-  const isProtectedRoute = protectedRoutes.some(route => 
-    nextUrl.pathname.startsWith(route)
+  
+  // 设置额外的安全头
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;"
   );
 
-  // 如果是受保护的路由但用户未登录，根据具体路由决定重定向目标
-  if (isProtectedRoute && !isLoggedIn) {
-    if (nextUrl.pathname.startsWith('/dashboard')) {
-      // 未登录访问仪表盘 -> 重定向到首页（符合业务规则）
-      const homeUrl = new URL('/', nextUrl.origin);
-      console.log('Redirecting unauthenticated user from dashboard to home:', homeUrl.toString());
-      return NextResponse.redirect(homeUrl);
-    } else {
-      // 其他受保护路由 -> 重定向到登录页
-      const loginUrl = new URL('/login', nextUrl.origin);
-      loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
-      console.log('Redirecting to login:', loginUrl.toString());
-      return NextResponse.redirect(loginUrl);
+  // 简化的API路径保护 - 只保护敏感API，让客户端处理页面路由
+  if (protectedApiPaths.some(path => pathname.startsWith(path))) {
+    const sessionToken = request.cookies.get('next-auth.session-token') || 
+                         request.cookies.get('__Secure-next-auth.session-token');
+    
+    if (!sessionToken?.value) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
   }
 
-  // 如果用户已登录且访问首页，重定向到仪表盘
-  if (isLoggedIn && nextUrl.pathname === '/') {
-    const dashboardUrl = new URL('/dashboard', nextUrl.origin);
-    console.log('Redirecting logged-in user to dashboard:', dashboardUrl.toString());
-    return NextResponse.redirect(dashboardUrl);
+  // API路由的额外安全检查
+  if (pathname.startsWith('/api/')) {
+    // 检查Content-Type（对于POST/PUT请求），但排除NextAuth路由
+    if (['POST', 'PUT', 'PATCH'].includes(request.method) && !pathname.startsWith('/api/auth/')) {
+      const contentType = request.headers.get('content-type');
+      if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+        return new NextResponse('Invalid Content-Type', { status: 400 });
+      }
+    }
+
+    // 添加CORS头（如果需要）
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': (globalThis as any).process?.env?.NODE_ENV === 'production' ? 'https://yourdomain.com' : '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400',
+        },
+      });
+    }
   }
 
-  // 如果用户已登录且访问登录页，重定向到仪表盘
-  if (isLoggedIn && nextUrl.pathname === '/login') {
-    const dashboardUrl = new URL('/dashboard', nextUrl.origin);
-    console.log('Redirecting logged-in user from login to dashboard:', dashboardUrl.toString());
-    return NextResponse.redirect(dashboardUrl);
-  }
-
-  // 其他情况正常处理
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * 匹配所有请求路径，除了：
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (public folder)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
