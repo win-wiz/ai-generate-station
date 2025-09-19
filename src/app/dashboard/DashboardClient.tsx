@@ -1,21 +1,41 @@
 'use client';
 
-import { useRouteGuard } from '@/lib/route-guard';
-import { RouteGuard } from '@/components/RouteGuard';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function DashboardClient() {
-  const { session } = useRouteGuard();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'loading') return; // 还在加载中
+    
+    if (!session) {
+      // 未登录，重定向到首页
+      router.push('/');
+      return;
+    }
+  }, [session, status, router]);
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-white">加载中...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-white">正在重定向...</div>
+      </div>
+    );
+  }
 
   return (
-    <RouteGuard 
-      requiredAuth={true}
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-white">加载中...</div>
-        </div>
-      }
-    >
-      <main className="min-h-screen text-white pt-16">
+    <main className="min-h-screen text-white pt-16">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -185,7 +205,6 @@ export default function DashboardClient() {
           </div>
         </div>
       </div>
-      </main>
-    </RouteGuard>
+    </main>
   );
 }

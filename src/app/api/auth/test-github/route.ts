@@ -1,47 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 /**
- * 测试 GitHub API 连接的端点
- * 用于诊断网络连接问题
+ * GET /api/auth/test-github - GitHub OAuth 测试端点
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('Testing GitHub API connection...');
-    
-    // 测试 GitHub API 连接
-    const response = await fetch('https://api.github.com/user', {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'ai-generate-station',
-        'Accept': 'application/vnd.github.v3+json',
-      },
-      // 增加超时时间
-      signal: AbortSignal.timeout(10000), // 10秒超时
+    // 检查 GitHub OAuth 配置
+    const githubClientId = process.env.GITHUB_CLIENT_ID;
+    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+    const isConfigured = !!(githubClientId && githubClientSecret);
+
+    return NextResponse.json({
+      configured: isConfigured,
+      clientId: githubClientId ? `${githubClientId.slice(0, 4)}...` : null,
+      timestamp: new Date().toISOString(),
+      message: isConfigured 
+        ? 'GitHub OAuth 配置正常' 
+        : 'GitHub OAuth 未配置，请设置 GITHUB_CLIENT_ID 和 GITHUB_CLIENT_SECRET 环境变量',
     });
-    
-    console.log('GitHub API response status:', response.status);
-    
-    if (response.ok) {
-      return NextResponse.json({ 
-        success: true, 
-        message: 'GitHub API connection successful',
-        status: response.status 
-      });
-    } else {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'GitHub API connection failed',
-        status: response.status 
-      }, { status: 500 });
-    }
-  } catch (error: any) {
-    console.error('GitHub API connection error:', error);
-    
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Network connection failed',
-      error: error.message,
-      code: error.code 
-    }, { status: 500 });
+  } catch (error) {
+    console.error('GitHub OAuth test error:', error);
+    return NextResponse.json(
+      { 
+        error: '测试失败',
+        configured: false,
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
 }

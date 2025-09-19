@@ -13,7 +13,7 @@ export interface SafeRouteGuardConfig {
   requireAuth?: boolean;
   redirectTo?: string;
   allowedRoles?: string[];
-  skipRedirect?: boolean; // 新增：跳过自动重定向
+  skipRedirect?: boolean;
 }
 
 export interface SafeRouteGuardReturn {
@@ -21,7 +21,7 @@ export interface SafeRouteGuardReturn {
   isAuthenticated: boolean;
   session: Session | null;
   user: Session['user'] | null;
-  redirectToLogin: () => void; // 新增：手动重定向函数
+  redirectToLogin: () => void;
 }
 
 /**
@@ -60,25 +60,19 @@ export function useSafeRouteGuard(config: SafeRouteGuardConfig = {}): SafeRouteG
 
   // 自动重定向逻辑（可选）
   useEffect(() => {
-    // 如果跳过自动重定向，则不执行
     if (skipRedirect) return;
-    
-    // 等待会话加载完成
     if (isLoading) return;
 
-    // 需要认证但未登录
     if (requireAuth && !isAuthenticated) {
       redirectToLogin();
       return;
     }
 
-    // 已登录但没有权限
     if (requireAuth && isAuthenticated && !hasRequiredRole) {
       router.push(ROUTES.UNAUTHORIZED || ROUTES.HOME);
       return;
     }
 
-    // 已登录用户访问登录页，重定向到仪表盘
     if (isAuthenticated && pathname === ROUTES.LOGIN) {
       router.push(ROUTES.DASHBOARD);
       return;
@@ -105,28 +99,30 @@ export function useSafeRouteGuard(config: SafeRouteGuardConfig = {}): SafeRouteG
 
 /**
  * 专门用于登录表单的路由守卫
- * 避免自动重定向，防止循环
  */
 export function useLoginFormGuard() {
   return useSafeRouteGuard({
-    skipRedirect: true, // 跳过自动重定向
+    skipRedirect: true,
   });
 }
 
 /**
  * 专门用于导航组件的路由守卫
- * 确保在所有 hooks 调用后再决定是否渲染
  */
 export function useNavigationGuard() {
   const pathname = usePathname();
   const guardResult = useSafeRouteGuard({
-    skipRedirect: true, // 导航组件不需要自动重定向
+    skipRedirect: true,
   });
 
-  const shouldHideNavigation = pathname === ROUTES.LOGIN;
+  // 判断是否应该隐藏导航栏 - 使用不同的变量名避免冲突
+  const navigationHidden = useMemo(() => {
+    const hideOnRoutes = [ROUTES.LOGIN, '/register'];
+    return hideOnRoutes.includes(pathname);
+  }, [pathname]);
 
   return {
     ...guardResult,
-    shouldHideNavigation,
+    shouldHideNavigation: navigationHidden,
   };
 }

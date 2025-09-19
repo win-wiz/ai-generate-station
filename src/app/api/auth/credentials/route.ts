@@ -9,18 +9,55 @@ import {
   CSRFUtils 
 } from '@/lib/auth-utils';
 import { JWTServerUtils } from '@/lib/jwt-server';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
+import { logSecurityEvent } from '@/lib/security';
 
-// 创建速率限制器
-const rateLimiter = new RateLimiterMemory({
-  points: 5, // 5次尝试
-  duration: 900, // 15分钟
-});
+// 启用 Edge Runtime
+export const runtime = 'edge';
+
+// Edge Runtime 兼容的速率限制器 (使用内存存储)
+class EdgeRateLimiter {
+  private static attempts = new Map<string, { count: number; resetTime: number }>();
+  private static readonly MAX_ATTEMPTS = 5;
+  private static readonly WINDOW_MS = 15 * 60 * 1000; // 15分钟
+
+  static async checkLimit(key: string): Promise<{ allowed: boolean; remaining: number }> {
+    const now = Date.now();
+    const record = this.attempts.get(key);
+
+    // 清理过期记录
+    if (record && now > record.resetTime) {
+      this.attempts.delete(key);
+    }
+
+    const currentRecord = this.attempts.get(key) || { count: 0, resetTime: now + this.WINDOW_MS };
+    
+    if (currentRecord.count >= this.MAX_ATTEMPTS) {
+      return { allowed: false, remaining: 0 };
+    }
+
+    currentRecord.count++;
+    this.attempts.set(key, currentRecord);
+
+    return { 
+      allowed: true, 
+      remaining: this.MAX_ATTEMPTS - currentRecord.count 
+    };
+  }
+
+  static async reset(key: string): Promise<void> {
+    this.attempts.delete(key);
+  }
+}
 
 // 获取客户端IP地址
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const realIP = request.headers.get('x-real-ip');
+  const cfConnectingIP = request.headers.get('cf-connecting-ip'); // Cloudflare
+  
+  if (cfConnectingIP) {
+    return cfConnectingIP;
+  }
   
   if (forwarded) {
     return forwarded.split(',')[0]!.trim();
@@ -37,15 +74,32 @@ function getClientIP(request: NextRequest): string {
  * POST /api/auth/credentials - 用户登录
  */
 export async function POST(request: NextRequest) {
+  const clientIP = getClientIP(request);
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+
   try {
-    // 速率限制检查
-    const clientIP = getClientIP(request);
-    try {
-      await rateLimiter.consume(clientIP);
-    } catch {
+    // Edge Runtime 兼容的速率限制检查
+    const rateLimitResult = await EdgeRateLimiter.checkLimit(clientIP);
+    if (!rateLimitResult.allowed) {
+      logSecurityEvent({
+        type: 'rate_limit_exceeded',
+        ip: clientIP,
+        userAgent,
+        details: { endpoint: '/api/auth/credentials' }
+      });
+      
       return NextResponse.json(
-        { error: '请求过于频繁，请稍后再试' },
-        { status: 429 }
+        { 
+          error: '请求过于频繁，请稍后再试',
+          retryAfter: 900 // 15分钟
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': '900',
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString()
+          }
+        }
       );
     }
 
@@ -71,9 +125,9 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = EmailUtils.normalize(email);
 
     if (action === 'register') {
-      return await handleRegister(normalizedEmail, password, name);
+      return await handleRegister(normalizedEmail, password, name || '', clientIP, userAgent);
     } else {
-      return await handleLogin(normalizedEmail, password);
+      return await handleLogin(normalizedEmail, password, clientIP, userAgent);
     }
   } catch (error) {
     console.error('认证错误:', error);
@@ -87,7 +141,7 @@ export async function POST(request: NextRequest) {
 /**
  * 处理用户注册
  */
-async function handleRegister(email: string, password: string, name?: string) {
+async function handleRegister(email: string, password: string, name: string | undefined, clientIP: string, userAgent: string) {
   // 验证密码强度
   const passwordValidation = PasswordUtils.validateStrength(password);
   if (!passwordValidation.isValid) {
@@ -132,11 +186,20 @@ async function handleRegister(email: string, password: string, name?: string) {
     );
   }
 
-  // 生成JWT token
-  const token = JWTServerUtils.sign({
+  // 生成JWT token (Edge Runtime 兼容)
+  const token = await JWTServerUtils.sign({
     userId: newUser[0]!.id,
     email: newUser[0]!.email,
     type: 'credentials',
+  });
+
+  // 记录成功注册事件
+  logSecurityEvent({
+    type: 'login_attempt',
+    ip: clientIP,
+    userAgent,
+    userId: newUser[0]!.id,
+    details: { action: 'register', success: true }
   });
 
   return NextResponse.json({
@@ -154,7 +217,7 @@ async function handleRegister(email: string, password: string, name?: string) {
 /**
  * 处理用户登录
  */
-async function handleLogin(email: string, password: string) {
+async function handleLogin(email: string, password: string, clientIP: string, userAgent: string) {
   // 查找用户
   const user = await db
     .select()
@@ -207,6 +270,19 @@ async function handleLogin(email: string, password: string) {
       })
       .where(eq(users.id, userData.id));
 
+    // 记录失败登录事件
+    logSecurityEvent({
+      type: 'login_failure',
+      ip: clientIP,
+      userAgent,
+      userId: userData.id,
+      details: { 
+        action: 'login', 
+        failedCount: newFailedCount,
+        locked: shouldLock 
+      }
+    });
+
     if (shouldLock) {
       return NextResponse.json(
         { error: '登录失败次数过多，账户已被锁定15分钟' },
@@ -233,11 +309,23 @@ async function handleLogin(email: string, password: string) {
     })
     .where(eq(users.id, userData.id));
 
-  // 生成JWT token
-  const token = JWTServerUtils.sign({
+  // 生成JWT token (Edge Runtime 兼容)
+  const token = await JWTServerUtils.sign({
     userId: userData.id,
     email: userData.email,
     type: 'credentials',
+  });
+
+  // 重置速率限制
+  await EdgeRateLimiter.reset(clientIP);
+
+  // 记录成功登录事件
+  logSecurityEvent({
+    type: 'login_attempt',
+    ip: clientIP,
+    userAgent,
+    userId: userData.id,
+    details: { action: 'login', success: true }
   });
 
   return NextResponse.json({

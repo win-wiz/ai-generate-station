@@ -4,6 +4,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from './button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import type { BaseComponentProps } from '@/types';
+import { isDevelopment, isProduction } from '@/lib/env-client';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -49,13 +50,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error('Application Error:', error, errorInfo);
     
     // 生产环境下可以发送到错误监控服务
-    if (process.env.NODE_ENV === 'production' && this.props.enableErrorReporting) {
+    if (isProduction() && this.props.enableErrorReporting) {
       // 例如：Sentry.captureException(error);
       // 这里可以添加错误上报逻辑
+      try {
+        // 可以在这里添加错误上报逻辑
+        console.warn('Error reporting is enabled but not configured');
+      } catch (reportError) {
+        console.error('Failed to report error:', reportError);
+      }
     }
 
     // 在开发环境下打印详细错误信息
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment()) {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
   }
@@ -107,7 +114,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
 
             {/* 开发环境下显示错误详情 */}
-            {this.props.showDetails && process.env.NODE_ENV === 'development' && this.state.error && (
+            {this.props.showDetails && this.state.error && (
               <details className="mt-6 text-left">
                 <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
                   错误详情 (开发模式)

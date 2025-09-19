@@ -1,60 +1,42 @@
-import bcrypt from 'bcryptjs';
 import { getSession } from "next-auth/react";
 import type { Session } from "next-auth";
+import { EdgeCryptoUtils, EdgePasswordValidator } from './crypto-edge';
 
 /**
- * 密码加密工具
+ * Edge Runtime 兼容的密码工具
  */
 export class PasswordUtils {
-  private static readonly SALT_ROUNDS = 12;
-
   /**
-   * 加密密码
+   * 加密密码 (Edge Runtime 兼容)
    */
   static async hash(password: string): Promise<string> {
-    return bcrypt.hash(password, this.SALT_ROUNDS);
+    return EdgeCryptoUtils.hashPassword(password);
   }
 
   /**
-   * 验证密码
+   * 验证密码 (Edge Runtime 兼容)
    */
   static async verify(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
+    return EdgeCryptoUtils.verifyPassword(password, hash);
   }
 
   /**
-   * 验证密码强度
+   * 验证密码强度 (增强版)
    */
   static validateStrength(password: string): {
     isValid: boolean;
     errors: string[];
+    score: number;
+    suggestions: string[];
   } {
-    const errors: string[] = [];
+    return EdgePasswordValidator.validateStrength(password);
+  }
 
-    if (password.length < 8) {
-      errors.push('密码长度至少8位');
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      errors.push('密码必须包含至少一个大写字母');
-    }
-
-    if (!/[a-z]/.test(password)) {
-      errors.push('密码必须包含至少一个小写字母');
-    }
-
-    if (!/\d/.test(password)) {
-      errors.push('密码必须包含至少一个数字');
-    }
-
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      errors.push('密码必须包含至少一个特殊字符');
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
+  /**
+   * 生成强密码
+   */
+  static generateStrongPassword(length: number = 16): string {
+    return EdgePasswordValidator.generateStrongPassword(length);
   }
 }
 
@@ -119,22 +101,21 @@ export class EmailUtils {
 }
 
 /**
- * CSRF保护工具
+ * Edge Runtime 兼容的 CSRF 保护工具
  */
 export class CSRFUtils {
   /**
-   * 生成CSRF令牌
+   * 生成CSRF令牌 (Edge Runtime 兼容)
    */
   static generateToken(): string {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+    return EdgeCryptoUtils.generateCSRFToken();
   }
 
   /**
-   * 验证CSRF令牌
+   * 验证CSRF令牌 (时间安全比较)
    */
   static verifyToken(token: string, sessionToken: string): boolean {
-    return token === sessionToken;
+    return EdgeCryptoUtils.validateCSRFToken(token, sessionToken);
   }
 }
 

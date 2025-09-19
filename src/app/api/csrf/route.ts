@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateSecureToken } from '@/lib/security';
 
+export const runtime = 'edge';
+
 /**
  * GET /api/csrf - 获取CSRF令牌
  */

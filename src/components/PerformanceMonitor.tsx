@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import type { PerformanceMetrics } from '@/types';
 import { cn } from '@/lib/utils';
+import { isDevelopment } from '@/lib/env-client';
 
 /**
  * 性能监控组件
@@ -18,7 +19,10 @@ export function PerformanceMonitor() {
 
   useEffect(() => {
     // 只在开发环境或启用性能监控时运行
-    if (process.env.NODE_ENV !== 'development' && !process.env.NEXT_PUBLIC_ENABLE_PERFORMANCE_MONITOR) {
+    const enableMonitoring = isDevelopment() || 
+      (typeof window !== 'undefined' && window.location.search.includes('perf=true'));
+    
+    if (!enableMonitoring) {
       return;
     }
 

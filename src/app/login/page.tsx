@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import LoginForm from '@/components/auth/LoginForm';
 
+export const runtime = 'edge';
+
 export const metadata: Metadata = {
   title: 'AI生成站 - 登录',
   description: '登录到AI生成站，体验强大的AI内容生成功能',
@@ -13,8 +15,9 @@ interface LoginPageProps {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const callbackUrl = params.callbackUrl || '/dashboard';
+  
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden bg-gradient-to-br from-purple-600 via-purple-700 to-pink-500">
       {/* 返回首页按钮 */}
       <div className="absolute top-4 left-4 z-20">
         <a
@@ -32,15 +35,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               strokeLinejoin="round"
               strokeWidth={2}
               d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
+            />                                       
           </svg>
           返回首页
-        </a>
+        </a>      
       </div>
-      
-      <div className="flex h-full w-full">
+
+      {/* 主要内容区域 - flex 容器 */}
+      <div className="flex h-full">
         {/* 左侧装饰区域 - 在大屏幕上显示 */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-purple-700 relative overflow-hidden">
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-purple-600 via-purple-700 to-pink-500 relative overflow-hidden">
           <div className="absolute inset-0 bg-black/20" />
           <div className="relative z-10 flex flex-col justify-center px-12 text-white">
             <div className="max-w-md">
@@ -66,25 +70,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-white rounded-full" />
                   <span className="text-blue-100">多语言支持</span>
-                </div>
+                </div>                 
               </div>
             </div>
+            
+            {/* 装饰性几何图形 */}
+            <div className="absolute top-20 right-20 w-32 h-32 border border-white/20 rounded-full" />
+            <div className="absolute bottom-20 right-32 w-24 h-24 border border-white/20 rounded-full" />
+            <div className="absolute top-1/2 right-12 w-16 h-16 border border-white/20 rounded-full" />
           </div>
-          
-          {/* 装饰性几何图形 */}
-          <div className="absolute top-20 right-20 w-32 h-32 border border-white/20 rounded-full" />
-          <div className="absolute bottom-20 right-32 w-24 h-24 border border-white/20 rounded-full" />
-          <div className="absolute top-1/2 right-12 w-16 h-16 border border-white/20 rounded-full" />
         </div>
 
         {/* 右侧登录表单区域 */}
-        <div className="flex-1 flex items-center justify-center px-6 sm:px-8 lg:px-12 py-8 min-h-0">
+        <div className="flex-1 flex items-center justify-center px-6 sm:px-8 lg:px-12 py-8 min-h-0 lg:bg-gray-50/95 lg:backdrop-blur-sm">
           <div className="w-full max-w-lg space-y-8 flex flex-col justify-center">
             {/* 头部 */}
             <div className="text-center">
-              <div className="mx-auto h-12 w-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
+              <div className="mx-auto h-14 w-14 bg-gradient-to-r from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center mb-6 shadow-xl">
                 <svg
-                  className="h-7 w-7 text-white"
+                  className="h-8 w-8 text-white"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -97,16 +101,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">
                 AI 生成站
               </h2>
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-gray-600 leading-relaxed">
                 登录您的账户，开始AI创作之旅
               </p>
             </div>
 
             {/* 登录表单 */}
-            <div className="bg-white py-8 px-8 shadow-2xl rounded-2xl border border-gray-100/50 backdrop-blur-sm">
+            <div className="bg-white/95 backdrop-blur-sm py-10 px-10 shadow-2xl rounded-3xl border border-white/20 ring-1 ring-gray-900/5 transform hover:scale-[1.02] transition-transform duration-300">
               <LoginForm redirectTo={callbackUrl} />
             </div>
 

@@ -5,7 +5,7 @@ import { signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { useNavigationGuard } from '@/lib/safe-route-guard';
+import { useNavigationGuard } from '@/lib/navigation-guard';
 import { getLogoutRedirectUrl } from '@/lib/route-guard';
 import { ROUTES } from '@/lib/constants';
 import type { BaseComponentProps } from '@/types';

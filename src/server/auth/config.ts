@@ -5,13 +5,23 @@ import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 
 import { db } from "@/server/db";
-import { env } from "@/env";
+import { env } from "@/lib/env-simple";
 import {
   accounts,
   sessions,
   users,
   verificationTokens,
 } from "@/server/db/schema";
+
+// 检测运行环境
+function getRuntime(): 'edge' | 'nodejs' | 'cloudflare' {
+  if (typeof (globalThis as any).EdgeRuntime !== 'undefined' || 
+      typeof (globalThis as any).WebAssembly !== 'undefined' && 
+      typeof process === 'undefined') {
+    return 'edge';
+  }
+  return 'nodejs';
+}
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -43,12 +53,12 @@ export const authConfig = {
   providers: [
     DiscordProvider,
     GoogleProvider({
-      clientId: env.AUTH_GOOGLE_ID!,
-      clientSecret: env.AUTH_GOOGLE_SECRET!,
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
     }),
     GitHubProvider({
-      clientId: env.AUTH_GITHUB_ID!,
-      clientSecret: env.AUTH_GITHUB_SECRET!,
+      clientId: process.env.AUTH_GITHUB_ID!,
+      clientSecret: process.env.AUTH_GITHUB_SECRET!,
       // 优化GitHub OAuth配置
       authorization: {
         params: {
@@ -66,12 +76,15 @@ export const authConfig = {
      * @see https://next-auth.js.org/providers/github
      */
   ],
-  adapter: DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
+  // 在 Edge Runtime 中不使用数据库适配器，改用 JWT 策略
+  ...(getRuntime() !== 'edge' ? {
+    adapter: DrizzleAdapter(db, {
+      usersTable: users,
+      accountsTable: accounts,
+      sessionsTable: sessions,
+      verificationTokensTable: verificationTokens,
+    }),
+  } : {}),
   session: {
     strategy: "jwt" as const,
     maxAge: 7 * 24 * 60 * 60, // 7 days

@@ -102,8 +102,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
       </head>
       <body className="gradient-bg min-h-screen antialiased font-sans">
         <ErrorBoundary
-          showDetails={process.env.NODE_ENV === 'development'}
-          enableErrorReporting={process.env.NODE_ENV === 'production'}
+          showDetails={true}
+          enableErrorReporting={true}
         >
           <SessionProvider
             // 优化会话配置

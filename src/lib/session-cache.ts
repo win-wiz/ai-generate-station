@@ -1,6 +1,6 @@
 'use client';
 
-import { Session } from 'next-auth';
+import type { Session } from 'next-auth';
 
 /**
  * 会话缓存管理器

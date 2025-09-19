@@ -57,7 +57,7 @@ function buildForCloudflare() {
   console.log('🔨 Building for Cloudflare Pages...');
   
   // Set environment for Cloudflare build
-  process.env.NODE_ENV = 'production';
+  (process.env as any).NODE_ENV = "production";
   process.env.DATABASE_URL = 'd1-remote';
   
   // Use Cloudflare-specific Next.js config

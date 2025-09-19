@@ -84,7 +84,7 @@ async function runTests() {
         });
         
         // 等待可能的重定向完成
-        await page.waitForTimeout(2000);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // 获取最终URL
         const finalUrl = page.url();
@@ -115,7 +115,7 @@ async function runTests() {
         
       } catch (error) {
         console.log(`❌ 测试异常: ${testCase.name}`);
-        console.log(`   错误: ${error.message}`);
+        console.log(`   错误: ${error instanceof Error ? error.message : String(error)}`);
       }
       
       console.log('─'.repeat(50));

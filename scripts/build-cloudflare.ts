@@ -70,7 +70,7 @@ function restoreOriginalConfig() {
 async function main() {
   try {
     // Set environment variables for Cloudflare build
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = "production";
     process.env.DATABASE_URL = 'd1-remote';
     process.env.SKIP_ENV_VALIDATION = 'true';
     
