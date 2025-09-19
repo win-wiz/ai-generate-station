@@ -1,18 +1,19 @@
-# Cloudflare Workers Configuration
+# Cloudflare Pages Configuration
 name = "ai-generate-station"
-main = "src/index.js"
 compatibility_date = "2024-01-15"
-compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
 
-# Node.js compatibility for Next.js
-node_compat = true
+# Node.js compatibility
+compatibility_flags = ["nodejs_compat"]
 
 # Environment variables
 [env.production.vars]
 NODE_ENV = "production"
+DATABASE_URL = "d1-remote"
 
 [env.development.vars]
 NODE_ENV = "development"
+DATABASE_URL = "file:./db.sqlite"
 
 # D1 Database bindings
 [[env.production.d1_databases]]
@@ -35,29 +36,6 @@ database_id = "" # For local development
 # binding = "STORAGE"
 # bucket_name = "ai-generate-station-storage"
 
-# Durable Objects (if needed for real-time features)
-# [[durable_objects.bindings]]
-# name = "CHAT_ROOM"
-# class_name = "ChatRoom"
-
-# Build configuration
-[build]
-command = "npm run build"
-
-# Routes configuration
-# [[routes]]
-# pattern = "ai-generate-station.your-domain.com/*"
-# zone_name = "your-domain.com"
-
-# Custom domains (uncomment and configure as needed)
-# [[env.production.routes]]
-# pattern = "ai-generate-station.your-domain.com/*"
-# custom_domain = true
-
-# Worker limits and settings
-[limits]
-cpu_ms = 50000
-
 # Analytics and monitoring
 [observability]
 enabled = true
@@ -67,7 +45,3 @@ enabled = true
 kv_persist = true
 d1_persist = true
 cache_persist = true
-
-# Compatibility settings
-[compatibility_flags]
-nodejs_compat = true

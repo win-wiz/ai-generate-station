@@ -1,0 +1,15 @@
+# Cloudflare Pages Redirects Configuration
+
+# SPA fallback for client-side routing
+/* /index.html 200
+
+# API routes should not be redirected
+/api/* 200
+
+# Static assets
+/_next/* 200
+/favicon.ico 200
+/manifest.json 200
+
+# Legacy redirects
+/home / 301

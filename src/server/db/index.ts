@@ -1,12 +1,14 @@
 import { drizzle } from "drizzle-orm/libsql";
+import { drizzle as drizzleD1 } from "drizzle-orm/d1";
 import { createClient } from "@libsql/client";
 
 import { env } from "@/env";
 import * as schema from "./schema";
+import type { D1Database } from "@/types/cloudflare";
 
 // Type declarations for Cloudflare D1
 declare global {
-  var DB: unknown;
+  var DB: D1Database | undefined;
 }
 
 /**
@@ -16,8 +18,9 @@ function createDatabaseClient() {
   try {
     // Handle Cloudflare D1 remote connection
     if (env.DATABASE_URL === "d1-remote") {
-      // Check if we're in Cloudflare Workers environment
-      if (typeof globalThis.DB !== "undefined") {
+      // Check if we're in Cloudflare Workers/Pages environment
+      if (typeof globalThis.DB !== "undefined" && globalThis.DB) {
+        console.log("Using Cloudflare D1 database binding");
         return globalThis.DB;
       }
       
@@ -61,8 +64,15 @@ const globalForDb = globalThis as unknown as {
 function createDatabase() {
   const conn = createDatabaseClient();
   
-  // For now, we'll use LibSQL adapter for all connections
-  // D1 support can be added when deploying to Cloudflare Workers
+  // Use D1 adapter for Cloudflare D1, LibSQL adapter for others
+  if (env.DATABASE_URL === "d1-remote" && typeof globalThis.DB !== "undefined") {
+    return drizzleD1(conn as D1Database, { 
+      schema,
+      logger: env.NODE_ENV === "development",
+    });
+  }
+  
+  // Use LibSQL adapter for local development and other connections
   return drizzle(conn as ReturnType<typeof createClient>, { 
     schema,
     logger: env.NODE_ENV === "development",
