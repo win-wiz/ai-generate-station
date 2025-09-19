@@ -11,9 +11,9 @@ compatibility_flags = ["nodejs_compat"]
 NODE_ENV = "production"
 DATABASE_URL = "d1-remote"
 
-[env.development.vars]
-NODE_ENV = "development"
-DATABASE_URL = "file:./db.sqlite"
+[env.preview.vars]
+NODE_ENV = "production"
+DATABASE_URL = "d1-remote"
 
 # D1 Database bindings
 [[env.production.d1_databases]]
@@ -21,10 +21,10 @@ binding = "DB"
 database_name = "ai-generate-station-db"
 database_id = "" # This will be filled by the deployment script
 
-[[env.development.d1_databases]]
+[[env.preview.d1_databases]]
 binding = "DB"
-database_name = "ai-generate-station-db-dev"
-database_id = "" # For local development
+database_name = "ai-generate-station-db-preview"
+database_id = "" # For preview environment
 
 # KV namespace bindings (if needed for caching)
 # [[env.production.kv_namespaces]]
